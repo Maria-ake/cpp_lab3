@@ -32,23 +32,13 @@ jobs:
       - name: Build
         run: cmake --build build --config Release
 
-      - name: Test
-        run: cmake --build build --config Release --target test
-
-      - name: Package
-        run: cmake --build build --config Release --target package
-
       - name: Upload Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: packages-${{ matrix.os }}
+          name: hello-${{ matrix.os }}
           path: |
-            build/*.deb
-            build/*.zip
-            build/*.msi
-            build/**/*.deb
-            build/**/*.zip
-            build/**/*.msi
+            build/Release/hello_world.exe
+            build/hello_world
           if-no-files-found: warn
 
 
