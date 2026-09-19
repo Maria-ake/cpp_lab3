@@ -1,0 +1,25 @@
+name: Build
+
+on:
+  push:
+    branches: [ "main" ]
+
+permissions: write-all
+
+jobs:
+  build:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    steps:
+    - uses: actions/checkout@v6
+    - run: cmake -B build -DCMAKE_BUILD_TYPE=Release
+    - run: cmake --build build --config Release
+    - uses: actions/upload-artifact@v6
+      with:
+        name: lab3-${{ matrix.os }}
+        path: |
+          build/**/lab3
+          build/**/lab3.exe
+        if-no-files-found: warn
