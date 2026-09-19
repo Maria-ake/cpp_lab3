@@ -1,25 +1,86 @@
-name: Build
+name: 'C++'
 
 on:
   push:
-    branches: [ "main" ]
+    branches:
+      - main
+      - feature/github_actions
 
 permissions: write-all
 
 jobs:
   build:
+    name: Build on ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
         os: [ubuntu-latest, windows-latest]
+
     steps:
-    - uses: actions/checkout@v6
-    - run: cmake -B build -DCMAKE_BUILD_TYPE=Release
-    - run: cmake --build build --config Release
-    - uses: actions/upload-artifact@v6
-      with:
-        name: lab3-${{ matrix.os }}
-        path: |
-          build/**/lab3
-          build/**/lab3.exe
-        if-no-files-found: warn
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          submodules: true
+
+      - name: Install Boost (Linux)
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install libboost-test-dev -y
+
+      - name: Configure CMake
+        run: cmake -B build -DCMAKE_BUILD_TYPE=Release -DPATCH_VERSION=${{ github.run_number }}
+
+      - name: Build
+        run: cmake --build build --config Release
+
+      - name: Test
+        run: cmake --build build --config Release --target test
+
+      - name: Package
+        run: cmake --build build --config Release --target package
+
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: packages-${{ matrix.os }}
+          path: |
+            build/*.deb
+            build/*.zip
+            build/*.msi
+            build/**/*.deb
+            build/**/*.zip
+            build/**/*.msi
+          if-no-files-found: warn
+
+
+  release:
+    name: Create Release
+    needs: build         
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: List downloaded files
+        run: find artifacts -type f
+
+      - name: Create Release
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: v1.0.${{ github.run_number }}
+          release_name: Release v1.0.${{ github.run_number }}
+          draft: false
+          prerelease: false
+
+      - name: Upload Release Assets
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v1.0.${{ github.run_number }}
+          files: artifacts/**/*
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
