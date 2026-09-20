@@ -148,7 +148,7 @@ void show(const char *s, C &c) {
 
 template <class C>
 void test(const char *name) {
-    std::cout << "\n=== " << name << " ===\n";
+    std::cout << "\n" << name << "\n";
     C c;
     for (int i = 0; i < 10; i++) c.push_back(i);
     show("Содержимое", c);
