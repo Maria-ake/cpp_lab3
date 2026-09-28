@@ -2,6 +2,7 @@
 #include <cstddef>
 
 // Последовательный
+template <typename T>
 class Seq {
     int *d = nullptr;
     size_t n = 0, cap = 0;
@@ -40,6 +41,7 @@ public:
 };
 
 // Двусвязный список
+template <typename T>
 class DList {
     struct N { int data; N *prev, *next; };
     N *head = nullptr, *tail = nullptr;
@@ -90,6 +92,7 @@ public:
 };
 
 // Односвязный список
+template <typename T>
 class SList {
     struct N { int data; N *next; };
     N *head = nullptr, *tail = nullptr;
@@ -170,7 +173,7 @@ void test(const char *name) {
 }
 
 int main() {
-    test<Seq>("Последовательный");
-    test<DList>("Двусвязный");
-    test<SList>("Односвязный");
+    test<Seq<int>>("Последовательный");
+    test<DList<int>>("Двусвязный");
+    test<SList<int>>("Односвязный");
 }
