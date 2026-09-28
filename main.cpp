@@ -1,5 +1,7 @@
 #include <iostream>
 #include <cstddef>
+#include <compare>
+#include <iterator>
 
 // Последовательный
 template <typename T>
@@ -12,32 +14,45 @@ class Seq {
         for (size_t i = 0; i < n; i++) nd[i] = d[i];
         delete[] d; d = nd; cap = nc;
     }
+template <typename T>
+class contiguous_iterator{
+T* ptr_ = nullptr;
 public:
-    struct It {
-        int *p;
-        int& operator*() { return *p; }
-        int get() { return *p; }
-        It& operator++() { p++; return *this; }
-        bool operator!=(It o) { return p != o.p; }
-    };
-    Seq() = default;
-    ~Seq() { delete[] d; }
-    Seq(Seq &&o) : d(o.d), n(o.n), cap(o.cap) { o.d = nullptr; o.n = o.cap = 0; }
-    Seq& operator=(Seq &&o) {
-        if (this != &o) { delete[] d; d=o.d; n=o.n; cap=o.cap; o.d=nullptr; o.n=o.cap=0; }
-        return *this;
-    }
-    Seq(const Seq&) = delete;
-    Seq& operator=(const Seq&) = delete;
+    using iterator_category = std::contiguous_iterator_tag;
+    using value_type        = T;
+    using difference_type   = std::ptrdiff_t;
+    using pointer           = T*;
+    using reference         = T&;
 
-    void push_back(int v) { if (n == cap) grow(); d[n++] = v; }
-    void insert(size_t i, int v) { if (n == cap) grow();
-        for (size_t j = n; j > i; j--) d[j] = d[j-1]; d[i] = v; n++; }
-    void erase(size_t i) { for (size_t j = i; j < n-1; j++) d[j] = d[j+1]; n--; }
-    size_t size() const { return n; }
-    int& operator[](size_t i) { return d[i]; }
-    It begin() { return {d}; }
-    It end() { return {d + n}; }
+    contiguous_iterator() = default;
+    explicit contiguous_iterator(T* ptr) : ptr_(ptr) {}
+
+
+    reference operator*() const { return *ptr_; }
+    pointer operator->() const { return ptr_; }
+
+
+    contiguous_iterator& operator++() { ptr_; return *this; }
+    contiguous_iterator operator(int) { auto tmp = *this; ++ptr_; return tmp; }
+    contiguous_iterator& operator--() { --ptr_; return *this; }
+    contiguous_iterator operator--(int) { auto tmp = *this; --ptr_; return tmp; }
+
+
+    contiguous_iterator& operator+=(difference_type n) { ptr_ += n; return *this; }
+    contiguous_iterator& operator-=(difference_type n) { ptr_ -= n; return *this; }
+
+    friend contiguous_iterator operator+(contiguous_iterator it, difference_type n) { it += n; return it; }
+    friend contiguous_iterator operator+(difference_type n, contiguous_iterator it) { it += n; return it; }
+    friend contiguous_iterator operator-(contiguous_iterator it, difference_type n) { it -= n; return it; }
+
+    friend difference_type operator-(const contiguous_iterator& lhs, const contiguous_iterator& rhs) {
+        return lhs.ptr_ - rhs.ptr_;
+    }
+
+
+    reference operator[](difference_type n) const { return *(ptr_ + n); }
+    auto operator<=>(const contiguous_iterator& other) const = default;
+};
 };
 
 // Двусвязный список
