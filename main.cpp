@@ -168,7 +168,7 @@ void test(const char *name) {
     for (auto it = c.begin(); it != c.end(); ++it) std::cout << it.get() << " ";
     std::cout << "\n";
 
-    C m = static_cast<C&&>(c);
+    C m = std::move(c);
     std::cout << "После move: size=" << m.size() << ", old size=" << c.size() << "\n";
 }
 
