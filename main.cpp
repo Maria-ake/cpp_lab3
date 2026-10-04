@@ -457,7 +457,7 @@ void run_scenario(const char* container_title) {
 }
 
 int main() {
-    run_scenario<Seq<int>>("Последовательный контейнер (Array)");
+    run_scenario<Seq<int>>("Последовательный контейнер");
     run_scenario<DList<int>>("Двунаправленный список");
     run_scenario<SList<int>>("Однонаправленный список");
     return 0;
