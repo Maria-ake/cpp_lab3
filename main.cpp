@@ -2,21 +2,14 @@
 #include <cstddef>
 #include <compare>
 #include <iterator>
+#include <utility>
 
-// Последовательный
+
 template <typename T>
-class Seq {
-    int *d = nullptr;
-    size_t n = 0, cap = 0;
-    void grow() {
-        size_t nc = cap ? cap * 3 / 2 : 2;
-        int *nd = new int[nc];
-        for (size_t i = 0; i < n; i++) nd[i] = d[i];
-        delete[] d; d = nd; cap = nc;
-    }
-template <typename T>
-class contiguous_iterator{
-T* ptr_ = nullptr;
+class contiguous_iterator {
+private:
+    T* ptr_ = nullptr;
+
 public:
     using iterator_category = std::contiguous_iterator_tag;
     using value_type        = T;
@@ -27,16 +20,29 @@ public:
     contiguous_iterator() = default;
     explicit contiguous_iterator(T* ptr) : ptr_(ptr) {}
 
-
     reference operator*() const { return *ptr_; }
     pointer operator->() const { return ptr_; }
+    reference get() const { return *ptr_; }
 
+    contiguous_iterator& operator++() { 
+        ++ptr_; 
+        return *this; 
+    }
+    contiguous_iterator operator++(int) { 
+        auto tmp = *this; 
+        ++ptr_; 
+        return tmp; 
+    }
 
-    contiguous_iterator& operator++() { ptr_; return *this; }
-    contiguous_iterator operator(int) { auto tmp = *this; ++ptr_; return tmp; }
-    contiguous_iterator& operator--() { --ptr_; return *this; }
-    contiguous_iterator operator--(int) { auto tmp = *this; --ptr_; return tmp; }
-
+    contiguous_iterator& operator--() { 
+        --ptr_; 
+        return *this; 
+    }
+    contiguous_iterator operator--(int) { 
+        auto tmp = *this; 
+        --ptr_; 
+        return tmp; 
+    }
 
     contiguous_iterator& operator+=(difference_type n) { ptr_ += n; return *this; }
     contiguous_iterator& operator-=(difference_type n) { ptr_ -= n; return *this; }
@@ -49,146 +55,410 @@ public:
         return lhs.ptr_ - rhs.ptr_;
     }
 
-
     reference operator[](difference_type n) const { return *(ptr_ + n); }
     auto operator<=>(const contiguous_iterator& other) const = default;
 };
-};
 
-// Двусвязный список
 template <typename T>
-class DList {
-    struct N { int data; N *prev, *next; };
-    N *head = nullptr, *tail = nullptr;
+class Seq {
+    T* d = nullptr;
     size_t n = 0;
+    size_t cap = 0;
+
+    void grow() {
+        size_t nc = cap ? (cap * 3 / 2 + 1) : 2; 
+        T* nd = new T[nc];
+        for (size_t i = 0; i < n; i++) nd[i] = std::move(d[i]);
+        delete[] d;
+        d = nd;
+        cap = nc;
+    }
+
 public:
-    struct It {
-        N *p;
-        int& operator*() { return p->data; }
-        int get() { return p->data; }
-        It& operator++() { p = p->next; return *this; }
-        bool operator!=(It o) { return p != o.p; }
-    };
-    DList() = default;
-    ~DList() { while (head) { N *t = head; head = head->next; delete t; } }
-    DList(DList &&o) : head(o.head), tail(o.tail), n(o.n) { o.head=o.tail=nullptr; o.n=0; }
-    DList& operator=(DList &&o) {
+    using iterator = contiguous_iterator<T>;
+
+    Seq() = default;
+
+    ~Seq() {
+        delete[] d;
+    }
+
+    // Move-конструктор
+    Seq(Seq&& o) noexcept : d(o.d), n(o.n), cap(o.cap) {
+        o.d = nullptr;
+        o.n = 0;
+        o.cap = 0;
+    }
+
+    // Move-присваивание
+    Seq& operator=(Seq&& o) noexcept {
         if (this != &o) {
-            while (head) { N *t = head; head = head->next; delete t; }
-            head=o.head; tail=o.tail; n=o.n; o.head=o.tail=nullptr; o.n=0;
+            delete[] d;
+            d = o.d;
+            n = o.n;
+            cap = o.cap;
+            o.d = nullptr;
+            o.n = 0;
+            o.cap = 0;
         }
         return *this;
     }
+
+    Seq(const Seq&) = delete;
+    Seq& operator=(const Seq&) = delete;
+
+    void push_back(const T& v) {
+        if (n >= cap) grow();
+        d[n++] = v;
+    }
+
+    void push_back(T&& v) {
+        if (n >= cap) grow();
+        d[n++] = std::move(v);
+    }
+
+    void insert(size_t i, const T& v) {
+        if (i > n) return;
+        if (n >= cap) grow();
+        for (size_t k = n; k > i; k--) d[k] = std::move(d[k - 1]);
+        d[i] = v;
+        n++;
+    }
+
+    void insert(size_t i, T&& v) {
+        if (i > n) return;
+        if (n >= cap) grow();
+        for (size_t k = n; k > i; k--) d[k] = std::move(d[k - 1]);
+        d[i] = std::move(v);
+        n++;
+    }
+
+    void erase(size_t i) {
+        if (i >= n) return;
+        for (size_t k = i; k + 1 < n; k++) d[k] = std::move(d[k + 1]);
+        n--;
+    }
+
+    size_t size() const { return n; }
+    T& operator[](size_t i) { return d[i]; }
+    const T& operator[](size_t i) const { return d[i]; }
+
+    iterator begin() { return iterator(d); }
+    iterator end() { return iterator(d + n); }
+};
+
+
+template <typename T>
+class DList {
+    struct Node {
+        T data;
+        Node* prev = nullptr;
+        Node* next = nullptr;
+    };
+    Node* head = nullptr;
+    Node* tail = nullptr;
+    size_t n = 0;
+
+public:
+    struct iterator {
+        Node* p = nullptr;
+        T& operator*() const { return p->data; }
+        T& get() const { return p->data; }
+        iterator& operator++() { p = p->next; return *this; }
+        iterator& operator--() { p = p->prev; return *this; }
+        bool operator!=(const iterator& o) const { return p != o.p; }
+        bool operator==(const iterator& o) const { return p == o.p; }
+    };
+
+    DList() = default;
+
+    ~DList() {
+        while (head) {
+            Node* t = head;
+            head = head->next;
+            delete t;
+        }
+    }
+
+    DList(DList&& o) noexcept : head(o.head), tail(o.tail), n(o.n) {
+        o.head = o.tail = nullptr;
+        o.n = 0;
+    }
+
+    DList& operator=(DList&& o) noexcept {
+        if (this != &o) {
+            while (head) {
+                Node* t = head;
+                head = head->next;
+                delete t;
+            }
+            head = o.head;
+            tail = o.tail;
+            n = o.n;
+            o.head = o.tail = nullptr;
+            o.n = 0;
+        }
+        return *this;
+    }
+
     DList(const DList&) = delete;
     DList& operator=(const DList&) = delete;
 
-    void push_back(int v) {
-        N *x = new N{v, tail, nullptr};
+    void push_back(const T& v) {
+        Node* x = new Node{v, tail, nullptr};
         if (tail) tail->next = x; else head = x;
-        tail = x; n++;
+        tail = x;
+        n++;
     }
-    void insert(size_t i, int v) {
+
+    void push_back(T&& v) {
+        Node* x = new Node{std::move(v), tail, nullptr};
+        if (tail) tail->next = x; else head = x;
+        tail = x;
+        n++;
+    }
+
+    void insert(size_t i, const T& v) {
         if (i == n) return push_back(v);
-        N *c = head; for (size_t k = 0; k < i; k++) c = c->next;
-        N *x = new N{v, c->prev, c};
+        Node* c = head;
+        for (size_t k = 0; k < i; k++) c = c->next;
+        Node* x = new Node{v, c->prev, c};
         if (c->prev) c->prev->next = x; else head = x;
-        c->prev = x; n++;
+        c->prev = x;
+        n++;
     }
+
+    void insert(size_t i, T&& v) {
+        if (i == n) return push_back(std::move(v));
+        Node* c = head;
+        for (size_t k = 0; k < i; k++) c = c->next;
+        Node* x = new Node{std::move(v), c->prev, c};
+        if (c->prev) c->prev->next = x; else head = x;
+        c->prev = x;
+        n++;
+    }
+
     void erase(size_t i) {
-        N *c = head; for (size_t k = 0; k < i; k++) c = c->next;
+        if (i >= n) return;
+        Node* c = head;
+        for (size_t k = 0; k < i; k++) c = c->next;
         if (c->prev) c->prev->next = c->next; else head = c->next;
         if (c->next) c->next->prev = c->prev; else tail = c->prev;
-        delete c; n--;
+        delete c;
+        n--;
     }
+
     size_t size() const { return n; }
-    int& operator[](size_t i) { N *c = head; while (i--) c = c->next; return c->data; }
-    It begin() { return {head}; }
-    It end() { return {nullptr}; }
+    T& operator[](size_t i) {
+        Node* c = head;
+        while (i--) c = c->next;
+        return c->data;
+    }
+
+    iterator begin() { return {head}; }
+    iterator end() { return {nullptr}; }
 };
 
-// Односвязный список
+
 template <typename T>
 class SList {
-    struct N { int data; N *next; };
-    N *head = nullptr, *tail = nullptr;
-    size_t n = 0;
-public:
-    struct It {
-        N *p;
-        int& operator*() { return p->data; }
-        int get() { return p->data; }
-        It& operator++() { p = p->next; return *this; }
-        bool operator!=(It o) { return p != o.p; }
+    struct Node {
+        T data;
+        Node* next = nullptr;
     };
+    Node* head = nullptr;
+    Node* tail = nullptr;
+    size_t n = 0;
+
+public:
+    struct iterator {
+        Node* p = nullptr;
+        T& operator*() const { return p->data; }
+        T& get() const { return p->data; }
+        iterator& operator++() { p = p->next; return *this; }
+        bool operator!=(const iterator& o) const { return p != o.p; }
+        bool operator==(const iterator& o) const { return p == o.p; }
+    };
+
     SList() = default;
-    ~SList() { while (head) { N *t = head; head = head->next; delete t; } }
-    SList(SList &&o) : head(o.head), tail(o.tail), n(o.n) { o.head=o.tail=nullptr; o.n=0; }
-    SList& operator=(SList &&o) {
+
+    ~SList() {
+        while (head) {
+            Node* t = head;
+            head = head->next;
+            delete t;
+        }
+    }
+
+    SList(SList&& o) noexcept : head(o.head), tail(o.tail), n(o.n) {
+        o.head = o.tail = nullptr;
+        o.n = 0;
+    }
+
+    SList& operator=(SList&& o) noexcept {
         if (this != &o) {
-            while (head) { N *t = head; head = head->next; delete t; }
-            head=o.head; tail=o.tail; n=o.n; o.head=o.tail=nullptr; o.n=0;
+            while (head) {
+                Node* t = head;
+                head = head->next;
+                delete t;
+            }
+            head = o.head;
+            tail = o.tail;
+            n = o.n;
+            o.head = o.tail = nullptr;
+            o.n = 0;
         }
         return *this;
     }
+
     SList(const SList&) = delete;
     SList& operator=(const SList&) = delete;
 
-    void push_back(int v) {
-        N *x = new N{v, nullptr};
+    void push_back(const T& v) {
+        Node* x = new Node{v, nullptr};
         if (tail) tail->next = x; else head = x;
-        tail = x; n++;
+        tail = x;
+        n++;
     }
-    void insert(size_t i, int v) {
-        if (i == 0) { head = new N{v, head}; if (!tail) tail = head; n++; return; }
+
+    void push_back(T&& v) {
+        Node* x = new Node{std::move(v), nullptr};
+        if (tail) tail->next = x; else head = x;
+        tail = x;
+        n++;
+    }
+
+    void insert(size_t i, const T& v) {
+        if (i == 0) {
+            head = new Node{v, head};
+            if (!tail) tail = head;
+            n++;
+            return;
+        }
         if (i == n) return push_back(v);
-        N *c = head; for (size_t k = 0; k < i-1; k++) c = c->next;
-        c->next = new N{v, c->next}; n++;
+        Node* c = head;
+        for (size_t k = 0; k < i - 1; k++) c = c->next;
+        c->next = new Node{v, c->next};
+        n++;
     }
+
+    void insert(size_t i, T&& v) {
+        if (i == 0) {
+            head = new Node{std::move(v), head};
+            if (!tail) tail = head;
+            n++;
+            return;
+        }
+        if (i == n) return push_back(std::move(v));
+        Node* c = head;
+        for (size_t k = 0; k < i - 1; k++) c = c->next;
+        c->next = new Node{std::move(v), c->next};
+        n++;
+    }
+
     void erase(size_t i) {
-        if (i == 0) { N *t = head; head = head->next; if (!head) tail = nullptr; delete t; n--; return; }
-        N *c = head; for (size_t k = 0; k < i-1; k++) c = c->next;
-        N *t = c->next; c->next = t->next; if (!c->next) tail = c;
-        delete t; n--;
+        if (i >= n) return;
+        if (i == 0) {
+            Node* t = head;
+            head = head->next;
+            if (!head) tail = nullptr;
+            delete t;
+            n--;
+            return;
+        }
+        Node* c = head;
+        for (size_t k = 0; k < i - 1; k++) c = c->next;
+        Node* t = c->next;
+        c->next = t->next;
+        if (!c->next) tail = c;
+        delete t;
+        n--;
     }
+
     size_t size() const { return n; }
-    int& operator[](size_t i) { N *c = head; while (i--) c = c->next; return c->data; }
-    It begin() { return {head}; }
-    It end() { return {nullptr}; }
+    T& operator[](size_t i) {
+        Node* c = head;
+        while (i--) c = c->next;
+        return c->data;
+    }
+
+    iterator begin() { return {head}; }
+    iterator end() { return {nullptr}; }
 };
 
-// Демонстрация
 template <class C>
-void show(const char *s, C &c) {
-    std::cout << s << ": ";
-    for (size_t i = 0; i < c.size(); i++) std::cout << c[i] << (i+1<c.size()?", ":"");
+void print_elements(C& c) {
+    for (size_t i = 0; i < c.size(); i++) {
+        std::cout << c[i] << (i + 1 < c.size() ? ", " : "");
+    }
     std::cout << "\n";
 }
 
 template <class C>
-void test(const char *name) {
-    std::cout << "\n" << name << "\n";
+void run_scenario(const char* container_title) {
+    std::cout << "Тестирование: " << container_title << "\n";
+
+    // Создание объекта контейнера для хранения int
     C c;
-    for (int i = 0; i < 10; i++) c.push_back(i);
-    show("Содержимое", c);
+
+    // Добавление десяти элементов 
+    for (int i = 0; i < 10; ++i) {
+        c.push_back(i);
+    }
+
+    // Вывод содержимого контейнера
+    std::cout << "Содержимое: ";
+    print_elements(c);
+
+    // Вывод размера контейнера
     std::cout << "Размер: " << c.size() << "\n";
 
-    c.erase(2); c.erase(3); c.erase(4);
-    show("После удаления", c);
+    // Удаление третьего, пятого и седьмого элементов
+    c.erase(2); // был 3-й (число 2)
+    c.erase(3); // был 5-й (число 4)
+    c.erase(4); // был 7-й (число 6)
 
-    c.insert(0, 10);  show("+10 в начало", c);
-    c.insert(4, 20);  show("+20 в середину", c);
-    c.push_back(30);  show("+30 в конец", c);
+    // Вывод содержимого
+    std::cout << "После удаления 3-го, 5-го, 7-го: ";
+    print_elements(c);
 
-    std::cout << "Итератор: ";
-    for (auto it = c.begin(); it != c.end(); ++it) std::cout << it.get() << " ";
+    // Добавление элемента 10 в начало
+    c.insert(0, 10);
+
+    // Вывод содержимого
+    std::cout << "После добавления 10 в начало: ";
+    print_elements(c);
+
+    // Добавление элемента 20 в середину контейнера
+    c.insert(c.size() / 2, 20);
+
+    // Вывод содержимого
+    std::cout << "После добавления 20 в середину: ";
+    print_elements(c);
+
+    // Добавление элемента 30 в конец контейнера
+    c.push_back(30);
+
+    // Вывод содержимого
+    std::cout << "После добавления 30 в конец: ";
+    print_elements(c);
+
+    // Проверка итератора
+    std::cout << "Обход через итератор (.get()): ";
+    for (auto it = c.begin(); it != c.end(); ++it) {
+        std::cout << it.get() << " ";
+    }
     std::cout << "\n";
 
-    C m = std::move(c);
-    std::cout << "После move: size=" << m.size() << ", old size=" << c.size() << "\n";
+    // Проверка семантики перемещения
+    C moved_c = std::move(c);
+    std::cout << "После std::move: новый размер = " << moved_c.size() 
+              << ", старый размер = " << c.size() << "\n\n";
 }
 
 int main() {
-    test<Seq<int>>("Последовательный");
-    test<DList<int>>("Двусвязный");
-    test<SList<int>>("Односвязный");
+    run_scenario<Seq<int>>("Последовательный контейнер (Array)");
+    run_scenario<DList<int>>("Двунаправленный список");
+    run_scenario<SList<int>>("Однонаправленный список");
+    return 0;
 }
