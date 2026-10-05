@@ -3,10 +3,11 @@
 #include <compare>
 #include <iterator>
 #include <utility>
+#include <algorithm>
 
 
 template <typename T>
-class contiguous_iterator {
+class contiguous_iterator{
 private:
     T* ptr_ = nullptr;
 
@@ -395,70 +396,79 @@ void print_elements(C& c) {
 }
 
 template <class C>
-void run_scenario(const char* container_title) {
+void scen(const char* container_title) {
     std::cout << "Тестирование: " << container_title << "\n";
 
-    // Создание объекта контейнера для хранения int
     C c;
-
-    // Добавление десяти элементов 
+ 
     for (int i = 0; i < 10; ++i) {
         c.push_back(i);
     }
 
-    // Вывод содержимого контейнера
+
     std::cout << "Содержимое: ";
     print_elements(c);
 
-    // Вывод размера контейнера
+
     std::cout << "Размер: " << c.size() << "\n";
 
-    // Удаление третьего, пятого и седьмого элементов
-    c.erase(2); // был 3-й (число 2)
-    c.erase(3); // был 5-й (число 4)
-    c.erase(4); // был 7-й (число 6)
 
-    // Вывод содержимого
+    c.erase(2); 
+    c.erase(3); 
+    c.erase(4); 
+
     std::cout << "После удаления 3-го, 5-го, 7-го: ";
     print_elements(c);
 
-    // Добавление элемента 10 в начало
+
     c.insert(0, 10);
 
-    // Вывод содержимого
+
     std::cout << "После добавления 10 в начало: ";
     print_elements(c);
 
-    // Добавление элемента 20 в середину контейнера
+ 
     c.insert(c.size() / 2, 20);
 
-    // Вывод содержимого
+
     std::cout << "После добавления 20 в середину: ";
     print_elements(c);
 
-    // Добавление элемента 30 в конец контейнера
     c.push_back(30);
 
-    // Вывод содержимого
+   
     std::cout << "После добавления 30 в конец: ";
     print_elements(c);
 
-    // Проверка итератора
-    std::cout << "Обход через итератор (.get()): ";
+   
+    std::cout << "Обход через итератор: ";
     for (auto it = c.begin(); it != c.end(); ++it) {
         std::cout << it.get() << " ";
     }
     std::cout << "\n";
 
-    // Проверка семантики перемещения
+
     C moved_c = std::move(c);
     std::cout << "После std::move: новый размер = " << moved_c.size() 
               << ", старый размер = " << c.size() << "\n\n";
 }
 
 int main() {
-    run_scenario<Seq<int>>("Последовательный контейнер");
-    run_scenario<DList<int>>("Двунаправленный список");
-    run_scenario<SList<int>>("Однонаправленный список");
+    scen<Seq<int>>("Последовательный контейнер");
+    scen<DList<int>>("Двунаправленный список");
+    scen<SList<int>>("Однонаправленный список");
+
+    Seq<int> arr;
+    arr.push_back(105);
+    arr.push_back(15);
+    arr.push_back(55);
+    arr.push_back(25);
+    arr.push_back(5);
+
+    print_elements(arr);
+
+    std::sort(arr.begin(), arr.end());
+    print_elements(arr);
+
     return 0;
 }
